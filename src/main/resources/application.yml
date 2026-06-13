@@ -1,0 +1,23 @@
+server:
+  port: 8092
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:bank
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  h2:
+    console:
+      enabled: true        # http://localhost:8092/h2-console
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+jwt:
+  secret: "change-this-to-a-very-long-random-secret-at-least-32-bytes-please-1234"
+  expiration-ms: 3600000   # 토큰 유효시간 1시간
