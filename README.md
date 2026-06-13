@@ -153,39 +153,9 @@ curl.exe http://localhost:8092/api/accounts/1/transactions -H "Authorization: Be
 
 ## 트러블슈팅(문제해결)
 
-만들면서 막혔던 것들이랑 어떻게 해결했는지 정리해봤습니다.
+코드 구현하면서 막혔던 것을 어떻게 해결했는지 정리해봤습니다.
 
-### 1. 빌드가 아예 안 됨 - MemberRepository에 메서드가 없다는 에러
-
-`./gradlew build` 했더니 `cannot find symbol: method findByUsername` 이런 에러가 여러 개 떴습니다.
-서비스 코드에서는 `memberRepository.findByUsername(...)`, `existsByUsername(...)` 를 쓰고 있는데,
-정작 `MemberRepository` 인터페이스는 텅 비어 있었던 게 원인이었어요.
-
-Spring Data JPA는 메서드 이름만 규칙대로 적어주면 쿼리를 알아서 만들어준다는 걸 알고,
-인터페이스에 아래처럼 선언만 추가해서 해결했습니다.
-
-```java
-Optional<Member> findByUsername(String username);
-boolean existsByUsername(String username);
-```
-
-### 2. ErrorResponse.of(...) 가 없다는 에러
-
-예외 처리하는 `GlobalExceptionHandler`에서 `ErrorResponse.of(code)` 를 쓰는데 컴파일이 안 됐습니다.
-알고 보니 import가 스프링이 기본 제공하는 `org.springframework.web.ErrorResponse`로 되어 있었고,
-그건 `of(...)` 같은 메서드가 없는 인터페이스였어요. (내가 원한 건 직접 만든 응답 클래스였는데 잘못 import 됐던 것)
-
-그래서 에러 응답용 record를 직접 만들고 import를 정리해서 해결했습니다.
-
-```java
-public record ErrorResponse(String code, String message) {
-    public static ErrorResponse of(ErrorCode errorCode) {
-        return new ErrorResponse(errorCode.name(), errorCode.getMessage());
-    }
-}
-```
-
-### 3. 테스트 하나만 계속 실패 - "금액은 0보다 커야 합니다"
+### 1. 테스트 하나만 계속 실패 - "금액은 0보다 커야 합니다"
 
 `./gradlew test` 돌리면 멱등성 테스트 하나만 실패했습니다.
 로그를 따라가 보니 테스트 헬퍼에서 잔액 0원짜리 계좌를 만들려고 `deposit(0)`을 호출하는데,
@@ -199,7 +169,7 @@ if (balance > 0) {
 }
 ```
 
-### 4. 작은 오타
+### 2. 작은 오타
 
 `TransactionResponse`의 필드 이름이 `perfromedBy`로 오타가 나 있어서 `performedBy`로 고쳤습니다.
 컴파일은 됐지만 API 응답 JSON에 그대로 노출되는 부분이라 그냥 두면 안 될 것 같아서 같이 정리했어요.
