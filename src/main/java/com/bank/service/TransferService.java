@@ -11,6 +11,8 @@ import com.bank.exception.ErrorCode;
 import com.bank.repository.AccountRepository;
 import com.bank.repository.IdempotencyKeyRepository;
 import com.bank.repository.TransactionHistoryRepository;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
@@ -19,7 +21,9 @@ import java.util.UUID;
 
 @Service
 public class TransferService {
-
+	
+	@Value("${transfer.per-limit}") private BigDecimal perLimit;
+	@Value("${transfer.daily-limit}") private BigDecimal dailyLimit;
     private final AccountRepository accountRepository;
     private final TransactionHistoryRepository transactionHistoryRepository;
     private final IdempotencyKeyRepository idempotencyKeyRepository;

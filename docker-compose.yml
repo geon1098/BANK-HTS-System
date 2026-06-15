@@ -1,0 +1,15 @@
+services:
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3311:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: bank
+    # PostgreSQL을 쓰려면 아래 주석을 대신 사용
+  # postgres:
+  #   image: postgres:16
+  #   ports: ["5432:5432"]
+  #   environment:
+  #     POSTGRES_DB: bank
+  #     POSTGRES_PASSWORD: root

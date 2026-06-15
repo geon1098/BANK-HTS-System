@@ -23,6 +23,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	runtimeOnly 'com.h2database:h2'
+	runtimeOnly 'com.mysql:mysql-connector-j'          // MySQL
+	//runtimeOnly 'org.postgresql:postgresql'          // PostgreSQL 쓸 경우
 	
 	// JWT (JSON Web Token)
   implementation 'io.jsonwebtoken:jjwt-api:0.12.6'

@@ -23,7 +23,9 @@ public enum ErrorCode {
     SAME_ACCOUNT_TRANSFER(HttpStatus.BAD_REQUEST, "출금 계좌와 입금 계좌가 동일합니다."),
     DUPLICATE_TRANSFER_REQUEST(HttpStatus.CONFLICT, "이미 처리된 송금 요청입니다."),
     TRANSFER_NOT_FOUND(HttpStatus.NOT_FOUND, "송금 내역을 찾을 수 없습니다."),
-    TRANSFER_ALREADY_CANCELED(HttpStatus.CONFLICT, "이미 취소된 송금입니다.");
+    TRANSFER_ALREADY_CANCELED(HttpStatus.CONFLICT, "이미 취소된 송금입니다."),
+	EXCEED_PER_TRANSFER_LIMIT(HttpStatus.BAD_REQUEST, "1회 이체 한도를 초과했습니다."),
+	EXCEED_DAILY_LIMIT(HttpStatus.BAD_REQUEST, "일일 이체 한도를 초과했습니다.");
 
     private final HttpStatus status;
     private final String message;

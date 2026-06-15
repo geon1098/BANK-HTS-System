@@ -3,21 +3,21 @@ server:
 
 spring:
   datasource:
-    url: jdbc:h2:mem:bank
-    username: sa
-    password:
-    driver-class-name: org.h2.Driver
-  h2:
-    console:
-      enabled: true        # http://localhost:8092/h2-console
+    url: jdbc:mysql://localhost:3311/bank?serverTimezone=Asia/Seoul
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: update # create-drop → update (데이터 안 날아가게)
     show-sql: true
     properties:
       hibernate:
-        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
 
 jwt:
   secret: "change-this-to-a-very-long-random-secret-at-least-32-bytes-please-1234"
-  expiration-ms: 3600000   # 토큰 유효시간 1시간
+  expiration-ms: 3600000 # 토큰 유효시간 1시간
+transfer:
+  per-limit: 1000000 # 1회 100만원
+  daily-limit: 5000000 # 하루 500만원
