@@ -21,7 +21,7 @@
 - Spring Boot 3.5
 - Spring Security + JWT (jjwt)
 - Spring Data JPA
-- H2 (인메모리 DB)
+- H2 (인메모리 DB)/MySQL
 - Gradle
 
 ## ERD (데이터 모델)
