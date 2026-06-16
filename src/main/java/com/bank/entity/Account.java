@@ -30,6 +30,9 @@ public class Account {
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+    
+    @Version
+    private Long version;// getter는 굳이 안 만들어도 됨
 
     protected Account() {}
 

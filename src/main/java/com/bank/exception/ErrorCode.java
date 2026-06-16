@@ -25,6 +25,7 @@ public enum ErrorCode {
     TRANSFER_NOT_FOUND(HttpStatus.NOT_FOUND, "송금 내역을 찾을 수 없습니다."),
     TRANSFER_ALREADY_CANCELED(HttpStatus.CONFLICT, "이미 취소된 송금입니다."),
 	EXCEED_PER_TRANSFER_LIMIT(HttpStatus.BAD_REQUEST, "1회 이체 한도를 초과했습니다."),
+	EXTERNAL_BANK_FAILED(HttpStatus.BAD_GATEWAY, "타행 서버 연동에 실패했습니다."),
 	EXCEED_DAILY_LIMIT(HttpStatus.BAD_REQUEST, "일일 이체 한도를 초과했습니다.");
 
     private final HttpStatus status;

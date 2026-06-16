@@ -25,6 +25,11 @@ public class AccountController {
                 .body(accountService.createAccount(auth.getName()));
     }
 
+    @GetMapping
+    public ResponseEntity<java.util.List<AccountResponse>> myAccounts(Authentication auth) {
+        return ResponseEntity.ok(accountService.getMyAccounts(auth.getName()));
+    }
+
     @GetMapping("/{accountId}")
     public ResponseEntity<AccountResponse> get(@PathVariable("accountId") Long accountId, Authentication auth) {
         return ResponseEntity.ok(accountService.getAccount(accountId, auth.getName()));

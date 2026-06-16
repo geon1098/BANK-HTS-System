@@ -10,6 +10,10 @@ import com.bank.exception.ErrorCode;
 import com.bank.repository.AccountRepository;
 import com.bank.repository.MemberRepository;
 import com.bank.repository.TransactionHistoryRepository;
+
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
@@ -39,6 +43,16 @@ public class AccountService {
         return AccountResponse.from(accountRepository.save(account));
     }
 
+    /** 내 계좌 목록 조회 (게시판 목록용) */
+    @Transactional(readOnly = true)
+    public java.util.List<AccountResponse> getMyAccounts(String username) {
+        Member owner = memberRepository.findByUsername(username)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+        return accountRepository.findByOwnerId(owner.getId()).stream()
+                .map(AccountResponse::from)
+                .toList();
+    }
+
     /** 계좌 조회: 본인 계좌만 (소유권 검증) */
     @Transactional(readOnly = true)
     public AccountResponse getAccount(Long accountId, String username) {
@@ -49,6 +63,9 @@ public class AccountService {
     }
 
     /** 입금 */
+    //충돌 나면 0.1초 쉬고 최대 3번까지 자동으로 다시 시도.
+    //비관적 락(findByIdForUpdate)과 낙관적 락은 동시에 쓰면 충돌
+    @Retryable(retryFor = ObjectOptimisticLockingFailureException.class, maxAttempts = 3, backoff = @Backoff(delay = 100))
     @Transactional
     public AccountResponse deposit(Long accountId, BigDecimal amount, String username) {
         Account account = accountRepository.findByIdForUpdate(accountId)   // 비관적 락

@@ -7,13 +7,14 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.bank.entity.TransactionHistory;
 import com.bank.entity.TransactionType;
 
-public interface TransactionHistoryRepository extends JpaRepository<TransactionHistory, Long>{
+public interface TransactionHistoryRepository extends JpaRepository<TransactionHistory, Long>, JpaSpecificationExecutor<TransactionHistory>{
 
 	// 특정 계좌의 거래내역을 최신순 페이징 조회
 	Page<TransactionHistory> findByAccountIdOrderByCreatedAtDesc(Long accountId, Pageable pageable);

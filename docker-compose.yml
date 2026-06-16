@@ -1,15 +1,29 @@
 services:
   mysql:
     image: mysql:8.0
+    container_name: bank-mysql
     ports:
       - "3311:3306"
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: bank
-    # PostgreSQL을 쓰려면 아래 주석을 대신 사용
-  # postgres:
-  #   image: postgres:16
-  #   ports: ["5432:5432"]
-  #   environment:
-  #     POSTGRES_DB: bank
-  #     POSTGRES_PASSWORD: root
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:                       # MySQL이 "진짜 준비됨"을 확인
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: bank-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10

@@ -2,8 +2,10 @@ package com.bank;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.retry.annotation.EnableRetry;
 
 @SpringBootApplication
+@EnableRetry //충돌 시 자동 재시도
 public class Banking2Application {
 
 	public static void main(String[] args) {

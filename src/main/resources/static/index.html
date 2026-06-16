@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>뱅킹투</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen">
+
+  <!-- ===== 상단바 ===== -->
+  <header class="bg-slate-800 text-white">
+    <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <h1 class="font-bold text-lg">🏦 뱅킹투</h1>
+      <div id="userBox" class="hidden items-center gap-3 text-sm">
+        <span id="userName" class="text-slate-300"></span>
+        <button onclick="logout()" class="bg-slate-600 hover:bg-slate-500 px-3 py-1 rounded">로그아웃</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 py-6">
+
+    <!-- ===== 로그인 화면 ===== -->
+    <section id="loginView" class="max-w-sm mx-auto mt-10 bg-white rounded-lg shadow p-6">
+      <h2 class="text-xl font-semibold mb-4 text-center">로그인</h2>
+      <div class="space-y-3">
+        <input id="loginUsername" placeholder="아이디" value="alice"
+               class="w-full border rounded px-3 py-2 focus:outline-none focus:ring focus:ring-slate-300" />
+        <input id="loginPassword" type="password" placeholder="비밀번호" value="1234"
+               class="w-full border rounded px-3 py-2 focus:outline-none focus:ring focus:ring-slate-300" />
+        <button onclick="login()"
+                class="w-full bg-slate-800 hover:bg-slate-700 text-white py-2 rounded">로그인</button>
+        <button onclick="signup()"
+                class="w-full border border-slate-400 hover:bg-slate-50 py-2 rounded">회원가입</button>
+      </div>
+      <p id="loginMsg" class="text-red-500 text-sm mt-3 text-center"></p>
+    </section>
+
+    <!-- ===== 메인 화면 (로그인 후) ===== -->
+    <section id="appView" class="hidden space-y-6">
+
+      <!-- 계좌 게시판 -->
+      <div class="bg-white rounded-lg shadow">
+        <div class="flex items-center justify-between px-4 py-3 border-b">
+          <h2 class="font-semibold">내 계좌</h2>
+          <button onclick="createAccount()"
+                  class="bg-slate-800 hover:bg-slate-700 text-white text-sm px-3 py-1.5 rounded">+ 계좌 개설</button>
+        </div>
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-slate-500">
+            <tr>
+              <th class="text-left px-4 py-2 w-12">#</th>
+              <th class="text-left px-4 py-2">계좌번호</th>
+              <th class="text-right px-4 py-2">잔액</th>
+              <th class="text-center px-4 py-2 w-20">상태</th>
+              <th class="px-4 py-2 w-16"></th>
+            </tr>
+          </thead>
+          <tbody id="accountRows"></tbody>
+        </table>
+        <p id="accountEmpty" class="hidden text-center text-slate-400 py-6 text-sm">계좌가 없습니다. ‘계좌 개설’을 눌러보세요.</p>
+      </div>
+
+      <!-- 선택한 계좌 상세 -->
+      <div id="detailBox" class="hidden bg-white rounded-lg shadow p-4 space-y-5">
+        <div class="flex items-baseline justify-between border-b pb-3">
+          <div>
+            <p class="text-xs text-slate-400">선택한 계좌</p>
+            <p id="detailNumber" class="font-mono"></p>
+          </div>
+          <div class="text-right">
+            <p class="text-xs text-slate-400">잔액</p>
+            <p id="detailBalance" class="text-2xl font-bold"></p>
+          </div>
+        </div>
+
+        <!-- 입금 / 출금 -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="border rounded p-3">
+            <h3 class="font-medium text-sm mb-2">입금 / 출금</h3>
+            <input id="cashAmount" type="number" placeholder="금액"
+                   class="w-full border rounded px-2 py-1.5 mb-2 text-sm" />
+            <div class="flex gap-2">
+              <button onclick="cash('deposit')" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white text-sm py-1.5 rounded">입금</button>
+              <button onclick="cash('withdraw')" class="flex-1 bg-red-600 hover:bg-red-500 text-white text-sm py-1.5 rounded">출금</button>
+            </div>
+          </div>
+
+          <!-- 계좌 이체 -->
+          <div class="border rounded p-3">
+            <h3 class="font-medium text-sm mb-2">계좌 이체 (행내)</h3>
+            <input id="toAccountId" type="number" placeholder="받는 계좌 ID"
+                   class="w-full border rounded px-2 py-1.5 mb-2 text-sm" />
+            <input id="transferAmount" type="number" placeholder="금액"
+                   class="w-full border rounded px-2 py-1.5 mb-2 text-sm" />
+            <button onclick="transfer()" class="w-full bg-slate-800 hover:bg-slate-700 text-white text-sm py-1.5 rounded">이체</button>
+          </div>
+
+          <!-- 타행 이체 -->
+          <div class="border rounded p-3">
+            <h3 class="font-medium text-sm mb-2">타행 이체 (대외) <span class="text-xs text-slate-400">9999=강제실패</span></h3>
+            <input id="extAccount" placeholder="타행 계좌번호" value="999-EXTERNAL"
+                   class="w-full border rounded px-2 py-1.5 mb-2 text-sm" />
+            <input id="extAmount" type="number" placeholder="금액"
+                   class="w-full border rounded px-2 py-1.5 mb-2 text-sm" />
+            <button onclick="external()" class="w-full bg-amber-600 hover:bg-amber-500 text-white text-sm py-1.5 rounded">타행 이체</button>
+          </div>
+
+          <!-- 거래내역 필터 -->
+          <div class="border rounded p-3">
+            <h3 class="font-medium text-sm mb-2">거래내역 필터</h3>
+            <select id="filterType" class="w-full border rounded px-2 py-1.5 mb-2 text-sm">
+              <option value="">전체 유형</option>
+              <option value="DEPOSIT">입금</option>
+              <option value="WITHDRAW">출금</option>
+              <option value="TRANSFER_OUT">이체(보냄)</option>
+              <option value="TRANSFER_IN">이체(받음)</option>
+              <option value="TRANSFER_CANCEL_OUT">취소(출금)</option>
+              <option value="TRANSFER_CANCEL_IN">취소(입금)</option>
+            </select>
+            <input id="filterFrom" type="datetime-local" class="w-full border rounded px-2 py-1.5 mb-2 text-sm" />
+            <button onclick="loadTx(0)" class="w-full border border-slate-400 hover:bg-slate-50 text-sm py-1.5 rounded">조회</button>
+          </div>
+        </div>
+
+        <!-- 거래내역 표 -->
+        <div>
+          <h3 class="font-medium text-sm mb-2">거래내역</h3>
+          <table class="w-full text-xs">
+            <thead class="bg-slate-50 text-slate-500">
+              <tr>
+                <th class="text-left px-2 py-2">일시</th>
+                <th class="text-left px-2 py-2">유형</th>
+                <th class="text-center px-2 py-2">방향</th>
+                <th class="text-right px-2 py-2">금액</th>
+                <th class="text-right px-2 py-2">거래후잔액</th>
+                <th class="text-left px-2 py-2">상대</th>
+              </tr>
+            </thead>
+            <tbody id="txRows"></tbody>
+          </table>
+          <div class="flex items-center justify-center gap-3 mt-3 text-sm">
+            <button onclick="loadTx(txPage-1)" class="px-2 py-1 border rounded disabled:opacity-30" id="prevBtn">이전</button>
+            <span id="pageInfo" class="text-slate-500"></span>
+            <button onclick="loadTx(txPage+1)" class="px-2 py-1 border rounded disabled:opacity-30" id="nextBtn">다음</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <p id="toast" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-4 py-2 rounded shadow text-sm"></p>
+  </main>
+
+  <script>
+    // ===== 공통 =====
+    const token = () => localStorage.getItem("token");
+    let currentAccountId = null;
+    let txPage = 0, txTotalPages = 1;
+
+    function toast(msg, ok = true) {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.className = "fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded shadow text-sm text-white " +
+                    (ok ? "bg-slate-800" : "bg-red-600");
+      t.classList.remove("hidden");
+      setTimeout(() => t.classList.add("hidden"), 2500);
+    }
+
+    const won = (n) => Number(n).toLocaleString("ko-KR") + "원";
+
+    // 공통 API 호출 (토큰 자동 첨부, 에러 메시지 추출)
+    async function api(path, { method = "GET", body } = {}) {
+      const res = await fetch(path, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...(token() ? { Authorization: "Bearer " + token() } : {}),
+        },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : null;
+      if (!res.ok) throw new Error(data?.message || "요청 실패 (" + res.status + ")");
+      return data;
+    }
+
+    // ===== 인증 =====
+    async function login() {
+      try {
+        const data = await api("/api/auth/login", {
+          method: "POST",
+          body: {
+            username: document.getElementById("loginUsername").value,
+            password: document.getElementById("loginPassword").value,
+          },
+        });
+        localStorage.setItem("token", data.accessToken);
+        localStorage.setItem("username", document.getElementById("loginUsername").value);
+        showApp();
+      } catch (e) {
+        document.getElementById("loginMsg").textContent = e.message;
+      }
+    }
+
+    async function signup() {
+      try {
+        await api("/api/auth/signup", {
+          method: "POST",
+          body: {
+            username: document.getElementById("loginUsername").value,
+            password: document.getElementById("loginPassword").value,
+          },
+        });
+        toast("회원가입 완료! 로그인하세요.");
+      } catch (e) {
+        document.getElementById("loginMsg").textContent = e.message;
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem("token");
+      localStorage.removeItem("username");
+      location.reload();
+    }
+
+    function showApp() {
+      document.getElementById("loginView").classList.add("hidden");
+      document.getElementById("appView").classList.remove("hidden");
+      document.getElementById("userBox").classList.remove("hidden");
+      document.getElementById("userBox").classList.add("flex");
+      document.getElementById("userName").textContent = localStorage.getItem("username") || "";
+      loadAccounts();
+    }
+
+    // ===== 계좌 게시판 =====
+    async function loadAccounts() {
+      try {
+        const list = await api("/api/accounts");
+        const tbody = document.getElementById("accountRows");
+        tbody.innerHTML = "";
+        document.getElementById("accountEmpty").classList.toggle("hidden", list.length > 0);
+        list.forEach((a, i) => {
+          const tr = document.createElement("tr");
+          tr.className = "border-t hover:bg-slate-50";
+          tr.innerHTML = `
+            <td class="px-4 py-2 text-slate-400">${i + 1}</td>
+            <td class="px-4 py-2 font-mono">${a.accountNumber}</td>
+            <td class="px-4 py-2 text-right font-medium">${won(a.balance)}</td>
+            <td class="px-4 py-2 text-center">
+              <span class="text-xs px-2 py-0.5 rounded ${a.status === 'ACTIVE' ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'}">${a.status}</span>
+            </td>
+            <td class="px-4 py-2 text-right">
+              <button class="text-blue-600 hover:underline">보기</button>
+            </td>`;
+          tr.querySelector("button").onclick = () => openAccount(a.accountId);
+          tbody.appendChild(tr);
+        });
+      } catch (e) {
+        toast(e.message, false);
+      }
+    }
+
+    async function createAccount() {
+      try {
+        await api("/api/accounts", { method: "POST" });
+        toast("계좌가 개설되었습니다.");
+        loadAccounts();
+      } catch (e) {
+        toast(e.message, false);
+      }
+    }
+
+    // ===== 계좌 상세 =====
+    async function openAccount(id) {
+      currentAccountId = id;
+      document.getElementById("detailBox").classList.remove("hidden");
+      await refreshDetail();
+      loadTx(0);
+      document.getElementById("detailBox").scrollIntoView({ behavior: "smooth" });
+    }
+
+    async function refreshDetail() {
+      const a = await api("/api/accounts/" + currentAccountId);
+      document.getElementById("detailNumber").textContent = a.accountNumber + "  (ID: " + a.accountId + ")";
+      document.getElementById("detailBalance").textContent = won(a.balance);
+    }
+
+    async function cash(kind) {
+      const amount = Number(document.getElementById("cashAmount").value);
+      if (!amount) return toast("금액을 입력하세요.", false);
+      try {
+        await api(`/api/accounts/${currentAccountId}/${kind}`, { method: "POST", body: { amount } });
+        toast((kind === "deposit" ? "입금" : "출금") + " 완료");
+        await afterChange();
+      } catch (e) {
+        toast(e.message, false);
+      }
+    }
+
+    async function transfer() {
+      const toAccountId = Number(document.getElementById("toAccountId").value);
+      const amount = Number(document.getElementById("transferAmount").value);
+      if (!toAccountId || !amount) return toast("받는 계좌 ID와 금액을 입력하세요.", false);
+      try {
+        await api("/api/transfers", {
+          method: "POST",
+          body: { fromAccountId: currentAccountId, toAccountId, amount, idempotencyKey: crypto.randomUUID() },
+        });
+        toast("이체 완료");
+        await afterChange();
+      } catch (e) {
+        toast(e.message, false);
+      }
+    }
+
+    async function external() {
+      const toExternalAccount = document.getElementById("extAccount").value;
+      const amount = Number(document.getElementById("extAmount").value);
+      if (!toExternalAccount || !amount) return toast("타행 계좌와 금액을 입력하세요.", false);
+      try {
+        await api("/api/transfers/external", {
+          method: "POST",
+          body: { fromAccountId: currentAccountId, toExternalAccount, amount },
+        });
+        toast("타행 이체 완료");
+        await afterChange();
+      } catch (e) {
+        toast(e.message + " (잔액 롤백 확인)", false);
+        await afterChange();
+      }
+    }
+
+    async function afterChange() {
+      await refreshDetail();
+      loadTx(0);
+      loadAccounts();
+    }
+
+    // ===== 거래내역 =====
+    async function loadTx(page) {
+      if (page < 0 || page >= txTotalPages) return;
+      const type = document.getElementById("filterType").value;
+      const from = document.getElementById("filterFrom").value; // YYYY-MM-DDTHH:mm
+      const params = new URLSearchParams({ page, size: 10 });
+      if (type) params.set("type", type);
+      if (from) params.set("from", from.length === 16 ? from + ":00" : from);
+      try {
+        const data = await api(`/api/accounts/${currentAccountId}/transactions?` + params);
+        txPage = data.number;
+        txTotalPages = Math.max(data.totalPages, 1);
+        const tbody = document.getElementById("txRows");
+        tbody.innerHTML = "";
+        if (data.content.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="text-center text-slate-400 py-4">거래내역이 없습니다.</td></tr>`;
+        }
+        data.content.forEach((h) => {
+          const isIn = h.direction === "IN";
+          const tr = document.createElement("tr");
+          tr.className = "border-t";
+          tr.innerHTML = `
+            <td class="px-2 py-1.5 text-slate-500">${(h.createdAt || "").replace("T", " ").slice(0, 16)}</td>
+            <td class="px-2 py-1.5">${h.type}</td>
+            <td class="px-2 py-1.5 text-center">
+              <span class="px-1.5 py-0.5 rounded ${isIn ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}">${h.direction}</span>
+            </td>
+            <td class="px-2 py-1.5 text-right font-medium ${isIn ? 'text-blue-600' : 'text-red-600'}">${isIn ? '+' : '-'}${won(h.amount)}</td>
+            <td class="px-2 py-1.5 text-right text-slate-500">${won(h.balanceAfter)}</td>
+            <td class="px-2 py-1.5 font-mono text-slate-500">${h.counterPartyAccountNumber || '-'}</td>`;
+          tbody.appendChild(tr);
+        });
+        document.getElementById("pageInfo").textContent = `${txPage + 1} / ${txTotalPages}`;
+        document.getElementById("prevBtn").disabled = txPage <= 0;
+        document.getElementById("nextBtn").disabled = txPage >= txTotalPages - 1;
+      } catch (e) {
+        toast(e.message, false);
+      }
+    }
+
+    // ===== 시작 시 토큰 있으면 자동 진입 =====
+    if (token()) showApp();
+  </script>
+</body>
+</html>

@@ -12,12 +12,17 @@ import com.bank.repository.AccountRepository;
 import com.bank.repository.IdempotencyKeyRepository;
 import com.bank.repository.TransactionHistoryRepository;
 
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class TransferService {
@@ -27,60 +32,99 @@ public class TransferService {
     private final AccountRepository accountRepository;
     private final TransactionHistoryRepository transactionHistoryRepository;
     private final IdempotencyKeyRepository idempotencyKeyRepository;
+    private final RedissonClient redisson;
+    private final ExternalBankClient externalBankClient;
 
     public TransferService(AccountRepository accountRepository,
                            TransactionHistoryRepository transactionHistoryRepository,
-                           IdempotencyKeyRepository idempotencyKeyRepository) {
+                           IdempotencyKeyRepository idempotencyKeyRepository,
+                           RedissonClient redisson,
+                           ExternalBankClient externalBankClient) {
         this.accountRepository = accountRepository;
         this.transactionHistoryRepository = transactionHistoryRepository;
         this.idempotencyKeyRepository = idempotencyKeyRepository;
+        this.redisson = redisson;
+        this.externalBankClient = externalBankClient;
     }
 
     /** 송금: 전부 성공하거나 전부 실패한다 */
     @Transactional
     public TransferResponse transfer(TransferRequest request, String username) {
 
-        // 0) 중복 송금 방지: 같은 멱등성 키는 한 번만
-        if (idempotencyKeyRepository.findByKeyValue(request.idempotencyKey()).isPresent()) {
-            throw new BusinessException(ErrorCode.DUPLICATE_TRANSFER_REQUEST);
+        // 데드락 방지: 작은 id부터 잠금 (Redis 분산 락 2개를 묶은 멀티락)
+        Long a = Math.min(request.fromAccountId(), request.toAccountId());
+        Long b = Math.max(request.fromAccountId(), request.toAccountId());
+        RLock lock = redisson.getMultiLock(
+                redisson.getLock("acct:" + a), redisson.getLock("acct:" + b));
+        try {
+            // 최대 5초 기다리고, 잡으면 10초 안에 끝내기
+            if (!lock.tryLock(5, 10, TimeUnit.SECONDS)) {
+                throw new BusinessException(ErrorCode.DUPLICATE_TRANSFER_REQUEST);
+            }
+
+            // ===== 여기서부터 기존 이체 로직 그대로 =====
+
+            // 0) 중복 송금 방지: 같은 멱등성 키는 한 번만
+            if (idempotencyKeyRepository.findByKeyValue(request.idempotencyKey()).isPresent()) {
+                throw new BusinessException(ErrorCode.DUPLICATE_TRANSFER_REQUEST);
+            }
+
+            // 1) 자기 자신에게 송금 금지
+            if (request.fromAccountId().equals(request.toAccountId())) {
+                throw new BusinessException(ErrorCode.SAME_ACCOUNT_TRANSFER);
+            }
+
+            // 2) 두 계좌를 id 오름차순으로 락 (교착 방지)
+            Long fromId = request.fromAccountId();
+            Long toId = request.toAccountId();
+            lockAccount(Math.min(fromId, toId));   // 항상 작은 id부터 잠근다
+            lockAccount(Math.max(fromId, toId));
+            Account from = getAccount(fromId);     // 이미 락 잡힌 엔티티를 가져옴
+            Account to = getAccount(toId);
+
+            // 3) 소유권: 출금 계좌는 반드시 본인 것
+            if (!from.isOwnedBy(username)) {
+                throw new BusinessException(ErrorCode.ACCESS_DENIED);
+            }
+
+
+            // 4) 실제 이동 (잔액부족/비활성 시 예외 → 전체 롤백)
+            BigDecimal amount = request.amount();
+            from.withdraw(amount);
+            to.deposit(amount);
+
+            // 1회 한도
+            if (amount.compareTo(perLimit) > 0) {
+                throw new BusinessException(ErrorCode.EXCEED_PER_TRANSFER_LIMIT);
+            }
+            // 일일 한도 (오늘 0시부터 보낸 TRANSFER_OUT 합계 + 이번 금액)
+            LocalDateTime todayStart = LocalDate.now().atStartOfDay();
+            BigDecimal sentToday = transactionHistoryRepository
+                    .sumAmountSince(from.getId(), TransactionType.TRANSFER_OUT, todayStart);
+            if (sentToday.add(amount).compareTo(dailyLimit) > 0) {
+                throw new BusinessException(ErrorCode.EXCEED_DAILY_LIMIT);
+            }
+
+            // 5) 거래기록 append (보냄/받음, 같은 그룹 ID)
+            String groupId = UUID.randomUUID().toString();
+            transactionHistoryRepository.save(TransactionHistory.ofTransfer(
+                    from, TransactionType.TRANSFER_OUT, amount, to.getAccountNumber(), groupId, username));
+            transactionHistoryRepository.save(TransactionHistory.ofTransfer(
+                    to, TransactionType.TRANSFER_IN, amount, from.getAccountNumber(), groupId, username));
+
+            // 6) 멱등성 키 저장 (다음 동일 요청 차단)
+            idempotencyKeyRepository.save(IdempotencyKey.of(request.idempotencyKey(), groupId));
+
+            return new TransferResponse(groupId,
+                    from.getId(), from.getBalance(),
+                    to.getId(), to.getBalance());
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        } finally {
+            if (lock.isHeldByCurrentThread()) lock.unlock();   // 열쇠 꼭 반납!
         }
-
-        // 1) 자기 자신에게 송금 금지
-        if (request.fromAccountId().equals(request.toAccountId())) {
-            throw new BusinessException(ErrorCode.SAME_ACCOUNT_TRANSFER);
-        }
-
-        // 2) 두 계좌를 id 오름차순으로 락 (교착 방지)
-        Long fromId = request.fromAccountId();
-        Long toId = request.toAccountId();
-        lockAccount(Math.min(fromId, toId));   // 항상 작은 id부터 잠근다
-        lockAccount(Math.max(fromId, toId));
-        Account from = getAccount(fromId);     // 이미 락 잡힌 엔티티를 가져옴
-        Account to = getAccount(toId);
-
-        // 3) 소유권: 출금 계좌는 반드시 본인 것
-        if (!from.isOwnedBy(username)) {
-            throw new BusinessException(ErrorCode.ACCESS_DENIED);
-        }
-
-        // 4) 실제 이동 (잔액부족/비활성 시 예외 → 전체 롤백)
-        BigDecimal amount = request.amount();
-        from.withdraw(amount);
-        to.deposit(amount);
-
-        // 5) 거래기록 append (보냄/받음, 같은 그룹 ID)
-        String groupId = UUID.randomUUID().toString();
-        transactionHistoryRepository.save(TransactionHistory.ofTransfer(
-                from, TransactionType.TRANSFER_OUT, amount, to.getAccountNumber(), groupId, username));
-        transactionHistoryRepository.save(TransactionHistory.ofTransfer(
-                to, TransactionType.TRANSFER_IN, amount, from.getAccountNumber(), groupId, username));
-
-        // 6) 멱등성 키 저장 (다음 동일 요청 차단)
-        idempotencyKeyRepository.save(IdempotencyKey.of(request.idempotencyKey(), groupId));
-
-        return new TransferResponse(groupId,
-                from.getId(), from.getBalance(),
-                to.getId(), to.getBalance());
     }
 
     /** 송금 취소: 원거래를 지우지 않고 '역거래'를 추가한다 */
@@ -148,5 +192,21 @@ public class TransferService {
                 .filter(h -> h.getType() == type)
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(ErrorCode.TRANSFER_NOT_FOUND));
+    }
+    
+    @Transactional
+    public void transferToExternalBank(Long fromAccountId, String toExternalAccount,
+                                        BigDecimal amount, String username) {
+        Account from = accountRepository.findByIdForUpdate(fromAccountId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ACCOUNT_NOT_FOUND));
+        if (!from.isOwnedBy(username)) throw new BusinessException(ErrorCode.ACCESS_DENIED);
+
+        from.withdraw(amount);              // ① 먼저 내 계좌에서 출금
+        externalBankClient.sendToExternalBank(toExternalAccount, amount);  // ② 타행 호출
+        // ②가 실패해 예외가 나면? → @Transactional 이 ①의 출금까지 전부 롤백!
+
+        transactionHistoryRepository.save(TransactionHistory.ofTransfer(
+            from, TransactionType.TRANSFER_OUT, amount, toExternalAccount,
+            java.util.UUID.randomUUID().toString(), username));
     }
 }

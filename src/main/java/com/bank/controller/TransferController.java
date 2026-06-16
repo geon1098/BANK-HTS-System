@@ -1,5 +1,6 @@
 package com.bank.controller;
 
+import com.bank.dto.ExternalTransferRequest;
 import com.bank.dto.TransferRequest;
 import com.bank.dto.TransferResponse;
 import com.bank.service.TransferService;
@@ -29,5 +30,14 @@ public class TransferController {
     		@PathVariable("transferGroupId") String transferGroupId,
                           Authentication auth) {
         return ResponseEntity.ok(transferService.cancelTransfer(transferGroupId, auth.getName()));
+    }
+
+    /** 타행(대외 기관) 이체: 금액 9999면 타행이 실패 → 출금 롤백 */
+    @PostMapping("/external")
+    public ResponseEntity<Void> external(@Valid @RequestBody ExternalTransferRequest request,
+                                         Authentication auth) {
+        transferService.transferToExternalBank(
+                request.fromAccountId(), request.toExternalAccount(), request.amount(), auth.getName());
+        return ResponseEntity.ok().build();
     }
 }

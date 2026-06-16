@@ -1,23 +1,34 @@
 server:
   port: 8092
+  tomcat:
+    threads:
+      max:
+        20 # ★ 일부러 작게! 13번 시나리오 B에서 스레드 고갈을 눈으로 보려고.
+        #   (실서비스 기본값은 200. 실습이 끝나면 지우거나 200으로)
 
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3311/bank?serverTimezone=Asia/Seoul
+    url: jdbc:mysql://localhost:3306/bank?serverTimezone=Asia/Seoul&rewriteBatchedStatements=true
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 30 # 커넥션 풀(스레드 20보다 넉넉히)
   jpa:
     hibernate:
-      ddl-auto: update # create-drop → update (데이터 안 날아가게)
-    show-sql: true
+      ddl-auto: update # 데이터 유지 (부하 후에도 계좌 남아있게)
+    show-sql: false # 부하 중엔 로그 폭주 막으려 끔
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
+  data:
+    redis:
+      host: localhost
+      port: 6379
 
 jwt:
   secret: "change-this-to-a-very-long-random-secret-at-least-32-bytes-please-1234"
-  expiration-ms: 3600000 # 토큰 유효시간 1시간
+  expiration-ms: 3600000
 transfer:
   per-limit: 1000000 # 1회 100만원
   daily-limit: 5000000 # 하루 500만원

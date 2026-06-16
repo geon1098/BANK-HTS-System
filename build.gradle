@@ -26,10 +26,22 @@ dependencies {
 	runtimeOnly 'com.mysql:mysql-connector-j'          // MySQL
 	//runtimeOnly 'org.postgresql:postgresql'          // PostgreSQL 쓸 경우
 	
+	//충돌 시 자동 재시도
+	implementation 'org.springframework.retry:spring-retry'
+	implementation 'org.springframework:spring-aspects'
+	//Redisson
+	implementation 'org.redisson:redisson-spring-boot-starter:3.27.2'
+	//WebClient 대외 기관(타행) 연동
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 	// JWT (JSON Web Token)
-  implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
-  runtimeOnly  'io.jsonwebtoken:jjwt-impl:0.12.6'
+	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+  	runtimeOnly  'io.jsonwebtoken:jjwt-impl:0.12.6'
     runtimeOnly  'io.jsonwebtoken:jjwt-jackson:0.12.6'
+	//서킷 브레이커 11번: resilience4j + AOP + actuator (상태 관찰용)
+	implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.2.0'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
